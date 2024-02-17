@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,12 +24,23 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	var (
+		host string
+		port string
+	)
+
+	flag.StringVar(&host, "host", "localhost", "host to connect to")
+	flag.StringVar(&port, "port", "17542", "Port to listen on")
+	flag.Parse()
+
+	addr := net.JoinHostPort(host, port)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", websocketHandler)
 
 	engine := nbhttp.NewEngine(nbhttp.Config{
 		Network:                 "tcp",
-		Addrs:                   []string{"localhost:12345"},
+		Addrs:                   []string{addr},
 		ReleaseWebsocketPayload: true,
 		Handler:                 mux,
 	})
