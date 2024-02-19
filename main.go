@@ -40,6 +40,8 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer sshClient.CloseSSHConnection()
+
 	err = sshClient.Prepare()
 	if err != nil {
 		slog.Error("Cannot prepare ssh client", "err", err)
@@ -50,6 +52,8 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 	go sshClient.CaptureStdout()
 
 	<-sshClient.Done
+
+
 }
 
 func main() {
