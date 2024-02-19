@@ -52,8 +52,6 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 	go sshClient.CaptureStdout()
 
 	<-sshClient.Done
-
-
 }
 
 func main() {
