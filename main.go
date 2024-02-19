@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -13,49 +12,44 @@ import (
 	"time"
 
 	"github.com/ITS-Nabu/its-nabu-proxy-ws/handler"
-	"nhooyr.io/websocket"
+	"github.com/gorilla/websocket"
 )
 
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  512,
+	WriteBufferSize: 512,
+}
+
 func websocketHandler(w http.ResponseWriter, r *http.Request) {
-	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{})
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	sshClient, err := handler.New(conn, "localhost", "22", "dev", "password")
+	defer func() {
+		if errClose := conn.Close(); errClose != nil {
+			slog.Error("Cannot close websocket connection", "err", errClose)
+		}
+	}()
+
+	sshClient, err := handler.New(conn, "", "", "", "")
 	if err != nil {
 		slog.Error("Error ssh client", "err", err)
-		conn.Write(r.Context(), websocket.MessageType(websocket.StatusInternalError), []byte("Error ssh client: "+err.Error()))
 		return
 	}
 
-	defer sshClient.CloseEverything()
-
-	for {
-		msgType, msg, err := conn.Read(r.Context())
-		if err != nil {
-			slog.Error("Error read message", "err", err)
-			return
-		}
-
-		writer, err := conn.Writer(r.Context(), msgType)
-		if err != nil {
-			slog.Error("Error acquiring writer", "err", err)
-			return
-		}
-
-		output, err := sshClient.Run(string(msg))
-		if err != nil {
-			slog.Error("Error getting output", "err", err)
-			return
-		}
-
-		io.Copy(writer, &output)
-
-		writer.Close()
+	err = sshClient.Prepare()
+	if err != nil {
+		slog.Error("Cannot prepare ssh client", "err", err)
+		return
 	}
+
+	go sshClient.CaptureStdin()
+	go sshClient.CaptureStdout()
+
+	<-sshClient.Done
 }
 
 func main() {
