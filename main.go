@@ -18,12 +18,15 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  512,
 	WriteBufferSize: 512,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
 func websocketHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		w.WriteHeader(500)
+		slog.Error("Cannot upgrade to websocket", "err", err)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -34,7 +37,7 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	sshClient, err := handler.New(conn, "", "", "", "")
+	sshClient, err := handler.New(conn, "103.77.106.109", "22", "dev", "#70HhE90b!wa")
 	if err != nil {
 		slog.Error("Error ssh client", "err", err)
 		return
