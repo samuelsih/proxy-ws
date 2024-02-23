@@ -44,6 +44,11 @@ func (h *Handler) CaptureStdin() {
 	for {
 		msgType, connReader, err := h.websocketConn.NextReader()
 		if err != nil {
+			if websocket.IsCloseError(err) {
+				slog.Info("Connection closed from the client")
+				return
+			}
+
 			slog.Error("Cannot read from websocket", "err", err)
 			return
 		}

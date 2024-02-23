@@ -46,8 +46,14 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	if err := json.NewDecoder(r.Body).Decode(&cred); err != nil {
-		slog.Error("Cannot parse credentials", "err", err)
+	_, reader, err := conn.NextReader()
+	if err != nil {
+		slog.Error("Cannot read from websocket", "err", err)
+		return
+	}
+
+	if err := json.NewDecoder(reader).Decode(&cred); err != nil {
+		slog.Error("Cannot parse credentials", "err", err, "username", cred.Username, "password", cred.Password, "ip", cred.IP)
 		conn.WriteMessage(websocket.BinaryMessage, []byte("Cannot parse credentials"))
 		return
 	}
@@ -59,6 +65,7 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer sshClient.CloseSSHConnection()
+	defer close(sshClient.Done)
 
 	err = sshClient.Prepare()
 	if err != nil {
@@ -104,6 +111,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
+	defer close(idle)
 
 	if err := server.Shutdown(ctx); err != nil {
 		slog.ErrorContext(ctx, "Error shutting down websocket server", "err", err.Error())
