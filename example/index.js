@@ -18,7 +18,23 @@ const sendSize = () => {
   webSocket.send(blob);
 };
 
-webSocket.onopen = sendSize;
+const sendCredential = () => {
+  const credential = {
+    ip: '',
+    username: '',
+    password: '',
+  };
+
+  const blob = new Blob([JSON.stringify(credential)], {
+    type: 'application/json',
+  });
+  webSocket.send(blob);
+};
+
+webSocket.onopen = () => {
+  sendCredential();
+  sendSize();
+};
 
 const resizeScreen = () => {
   fitAddon.fit();

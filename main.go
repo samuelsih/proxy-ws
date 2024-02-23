@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log/slog"
 	"net"
@@ -23,6 +24,12 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+type credential struct {
+	IP       string `json:"ip"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 func websocketHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -31,13 +38,21 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var cred credential
+
 	defer func() {
 		if errClose := conn.Close(); errClose != nil {
 			slog.Error("Cannot close websocket connection", "err", errClose)
 		}
 	}()
 
-	sshClient, err := handler.New(conn, "103.77.106.109", "22", "dev", "#70HhE90b!wa")
+	if err := json.NewDecoder(r.Body).Decode(&cred); err != nil {
+		slog.Error("Cannot parse credentials", "err", err)
+		conn.WriteMessage(websocket.BinaryMessage, []byte("Cannot parse credentials"))
+		return
+	}
+
+	sshClient, err := handler.New(conn, cred.IP, "22", cred.Username, cred.Password)
 	if err != nil {
 		slog.Error("Error ssh client", "err", err)
 		return
